@@ -30,6 +30,7 @@ multitasking==0.0.11
 nest-asyncio==1.5.8
 numpy==1.26.0
 packaging==23.2
+paho-mqtt==1.6.1
 pandas==2.1.1
 parso==0.8.3
 peewee==3.16.3
