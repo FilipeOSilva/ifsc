@@ -5,7 +5,7 @@
 Para executar o trabalho, a forma mais simples é:
 * Acessar a pasta do trabalho
 ```
-cd trabalho
+cd server
 ```
 * Criar um ambiente
 ```
@@ -18,4 +18,12 @@ source ./venv/bin/activate
 * Instalar as "bibliotecas" requiridas
 ```
 pip install -r requirements.txt
+```
+* Executar o broker MQTT:
+```
+python server.py
+```
+* Executar o dashboard:
+```
+streamlit run view.py
 ```
