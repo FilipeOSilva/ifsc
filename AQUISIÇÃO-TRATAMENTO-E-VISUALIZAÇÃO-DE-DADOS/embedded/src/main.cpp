@@ -3,28 +3,33 @@
 #include <PubSubClient.h>
 
 #define DELAY_SEND_MQTT_MSG 1000
-#define DELAY_READ_INPUT 50
-#define DELAY_PUMP_CONTROL 100
-#define MAX_TRY_CONNECT 5
-#define SENSOR_PIN D3
-#define ACTUATOR D5
-#define ANALOG_PIN A0
-#define DEVICE_ID 10001
-#define DEBOUNCE_RANGE 10
+#define DELAY_READ_INPUT    50
+#define DELAY_PUMP_CONTROL  100
+#define MAX_TRY_CONNECT     5
+#define SENSOR_PIN  D3
+#define ACTUATOR    D5
+#define ANALOG_PIN  A0
+#define DEVICE_ID       10001
+#define DEBOUNCE_RANGE  5
+#define MAX_LEVEL_FLOOD 100
+#define MIN_LEVEL_FLOOD 0
+#define MAX_VOLTAGE     3.3
+#define RESOLUTION_AC   1024
 
 //Wi Fi
-const char* ssid = "zeus_backend";
-const char* password = "lockzeus";
+const char* ssid = "ssid_2.4G";
+const char* password = "senhassid";
 
 // MQTT Broker
 const char *mqtt_broker = "test.mosquitto.org";
-const char *topic = "BOBSIEN/teste";
+const char *topic = "trabalho-filipe-jorge";
 const char *mqtt_username = "";
 const char *mqtt_password = "";
 const int mqtt_port = 1883;
 
 // control values
 bool _input_state = 0;
+bool _pump_state = 0;
 float _flood_level = 0.000;
 float _voltage_level = 0.0000;
 bool _mqtt_status = 0;
@@ -39,6 +44,7 @@ void control_input(void);
 void send_data_to_broker(void);
 bool connect_MQTT(void);
 void callback(char *topic, byte * payload, unsigned int length);
+void set_actuator(bool set);
 
 void setup(void) {
   WiFi.begin(ssid, password);
@@ -57,8 +63,8 @@ void setup(void) {
 
   _mqtt_status =  connect_MQTT();
 
-  pinMode(SENSOR_PIN, INPUT); 
-  pinMode(ACTUATOR, OUTPUT);  
+  pinMode(SENSOR_PIN, INPUT_PULLUP); 
+  pinMode(ACTUATOR, OUTPUT_OPEN_DRAIN);  
 }
 
 void loop() {
@@ -116,14 +122,14 @@ void callback(char *topic, byte * payload, unsigned int length) {
 
 void send_data_to_broker(void) {
   StaticJsonDocument<300> analog;
-  char data[100];
+  char data[300];
 
-  analog["data"] = "Voltage";
+  analog["data"] = millis();
   analog["tensao"] = _voltage_level;
   analog["nivel"] = _flood_level;
   analog["id"] = DEVICE_ID;
   analog["interruptor"] = _input_state;
-  analog["bomba"] = 1;
+  analog["status_bomba"] = _pump_state;
   serializeJson(analog, data);
  
   client.publish(topic, data); 
@@ -150,18 +156,29 @@ void control_input(void) {
     pooling = millis() + DELAY_READ_INPUT;
 
     adcValue = analogRead(ANALOG_PIN); 
-    _voltage_level = ((float)adcValue/1024) * 3.3;
-    _flood_level = (_voltage_level*100) / 3.3;
+    _voltage_level = ((float)adcValue/RESOLUTION_AC) * MAX_VOLTAGE;
+
+    /*
+      The general equation of a straight line
+        y = Ax + B
+    */
+    _flood_level = (_voltage_level* -97.09) + 310.68;
+
+    if (_flood_level >= MAX_LEVEL_FLOOD) {
+      _flood_level = MAX_LEVEL_FLOOD;
+    } else if (_flood_level <= MIN_LEVEL_FLOOD) {
+      _flood_level = MIN_LEVEL_FLOOD;
+    }
     
     if (digitalRead(SENSOR_PIN)) {
       if (debounce >= DEBOUNCE_RANGE) {
-        _input_state = 1;
+        _input_state = true;
         return;
       }
       debounce++;
     } else {
       debounce = 0;
-      _input_state = 0;
+      _input_state = false;
     }
   }
 }
@@ -172,5 +189,24 @@ void control_pump(void) {
   if (millis() > pooling) {
     pooling = millis() + DELAY_PUMP_CONTROL;
 
+    if (_pump_state && !_input_state) {
+      set_actuator(false);
+    }
+
+    if (_flood_level <= 85) {
+      set_actuator(true);
+    } else if (_flood_level >= 95) {
+      set_actuator(false);
+    }
+  }
+}
+
+void set_actuator(bool set) {
+  if (set && _input_state) {
+    digitalWrite(ACTUATOR, LOW);
+    _pump_state = true;
+  } else {
+    digitalWrite(ACTUATOR, HIGH);
+    _pump_state = false;
   }
 }
