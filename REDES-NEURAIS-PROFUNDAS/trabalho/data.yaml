@@ -1,0 +1,12 @@
+path: .
+
+train: train/images
+val: valid/images
+test: test/images
+
+names:
+  0: Construção
+  1: Campo
+  2: Floresta
+  3: Estrada
+  4: Agua
