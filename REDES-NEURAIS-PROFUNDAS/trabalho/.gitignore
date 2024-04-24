@@ -1,0 +1,5 @@
+.venv/
+train/
+runs/
+valid/
+yolov8n-seg.pt
